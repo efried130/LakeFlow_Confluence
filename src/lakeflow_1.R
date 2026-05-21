@@ -706,3 +706,7 @@ numbers <- gregexpr("[0-9]+", basename(opts$input_file))
 result <- unlist(regmatches(basename(opts$input_file), numbers))
 fwrite(viable_locations[,"lake"], file.path(indir, paste0("viable/viable_locations.csv")))
 print('Found viable lakes...')
+
+# === EF May 2026: Write JSON for Confluence driver (job count detection in slurm_driver.sh) ===
+jsonlite::write_json(viable_locations$lake, file.path(indir, "viable/lakeflow_lakes.json"))
+print(paste0('Wrote ', nrow(viable_locations), ' viable lakes to lakeflow_lakes.json'))

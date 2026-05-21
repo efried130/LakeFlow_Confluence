@@ -69,13 +69,27 @@ outdir <- opts$outdir
 SWORD_VERSION <- opts$swordversion
 
 # Set index, use aws array if index is -256 (ascii code for AWS)
+# index <- opts$index
+
+# if (!(is.null(index))){
+#   if (index == -256){
+#     index <- strtoi(Sys.getenv("AWS_BATCH_JOB_ARRAY_INDEX")) + 1
+#   }
+#   else{
+#     index <- index + 1
+#   }
+# }
+
+# EF May 2026: Index handling for SLURM
 index <- opts$index
 
 if (!(is.null(index))){
   if (index == -256){
     index <- strtoi(Sys.getenv("AWS_BATCH_JOB_ARRAY_INDEX")) + 1
-  }
-  else{
+  } else if (index == -512) {
+    # SLURM array support for Confluence HPC
+    index <- strtoi(Sys.getenv("SLURM_ARRAY_TASK_ID")) + 1
+  } else {
     index <- index + 1
   }
 }
@@ -501,8 +515,14 @@ lakeFlow = function(lake){
                  iter=4000,#4000, #iter=4000
                  control=list(stepsize=0.5,
                               adapt_delta=0.9)))
-  if(is.error(fit)){next}
+  #if(is.error(fit)){next}
   
+  #EF MAY 2026: Single lake processing handling
+  if(is.error(fit)){
+  message(paste0("Stan failed for lake: ", lake))
+  return(NA)
+  }
+                       
   # Manning's eqn:
   eqn1 = function(n, a, da, w, s){
     flow = (n^-1)*((a+da)^(5/3))*(w^(-2/3))*(s^0.5)
