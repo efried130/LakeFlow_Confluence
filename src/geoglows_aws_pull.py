@@ -4,7 +4,6 @@ import s3fs
 import xarray
 import datetime
 
-
 def pull_tributary(reach_id, start_date):
     start_date = datetime.datetime.strptime(start_date, "%m-%d-%Y").date()
     sim_begin = datetime.date(1940, 1, 1)
@@ -14,15 +13,21 @@ def pull_tributary(reach_id, start_date):
     s3 = s3fs.S3FileSystem(anon=True, client_kwargs=dict(region_name=region_name))
     s3store = s3fs.S3Map(root=bucket_uri, s3=s3, check=False)
     ds = xarray.open_zarr(s3store)
-    
-    end_date = min(datetime.date.today(), pd.Timestamp(ds["time"].values[-1]).date())
+
+    # Drop any NaT entries from the time coordinate
+    ds = ds.sel(time=~pd.isna(ds["time"].values))
+
+    # Now safely compute end_date
+    last_valid = pd.Timestamp(ds["time"].values[-1]).date()
+    end_date = min(datetime.date.today(), last_valid)
     second_index = end_date - sim_begin
-    
+
+    # Convert slice bounds to pandas Timestamps for safer comparison
     df = (
         ds["Q"]
-        .sel(river_id=reach_id, time=slice(start_date, end_date))
+        .sel(river_id=reach_id,
+             time=slice(pd.Timestamp(start_date), pd.Timestamp(end_date)))
         .to_dataframe()
     )
-
     df = df.reset_index().set_index("time").pivot(columns="river_id", values="Q")
     return df
